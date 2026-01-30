@@ -1,0 +1,68 @@
+# =========================
+# Node.js
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Environment variables
+# =========================
+.env
+.env.local
+.env.*.local
+
+# =========================
+# OS / Editor files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# VS Code
+.vscode/
+
+# =========================
+# Build / cache (if you add bundlers later)
+# =========================
+dist/
+build/
+.cache/
+.parcel-cache/
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# Temporary / runtime files
+# =========================
+tmp/
+temp/
+
+# =========================
+# Coverage
+# =========================
+coverage/
+
+# =========================
+# Certificates (future HTTPS)
+# =========================
+*.pem
+*.key
+*.crt
+
+# =========================
+# Media / recordings (if added later)
+# =========================
+recordings/
+uploads/
+
+# =========================
+# Misc
+# =========================
+*.pid
