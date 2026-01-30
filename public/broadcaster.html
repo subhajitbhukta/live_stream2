@@ -1,24 +1,86 @@
 <!DOCTYPE html>
 <html>
-<head><title>Broadcaster</title>
-<style>body{padding:30px;text-align:center;background:#f0f0f0;font-family:Arial}
-video{width:100%;max-width:500px;border:4px solid #007bff;border-radius:15px;margin:20px 0}
-button{padding:15px 30px;font-size:20px;margin:10px;border:none;border-radius:10px;cursor:pointer;color:white}
-#start{background:#007bff} #record{background:#ff6b35} #stop{background:#dc3545} #upload{background:#28a745}
-#status{font-size:24px;color:#28a745;margin:20px}
-#recording{display:none;animation:blink 1s infinite}
-@keyframes blink{50%{background:rgba(255,107,53,0.3)}}
-</style></head>
+<head>
+<title>📱 Mobile Broadcaster</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+  padding: 20px; 
+  text-align: center; 
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: white;
+  margin: 0;
+  min-height: 100vh;
+}
+video {
+  width: 100%; 
+  max-width: 500px; 
+  border: 4px solid #007bff; 
+  border-radius: 20px; 
+  margin: 20px 0;
+  box-shadow: 0 10px 30px rgba(0,123,255,0.3);
+}
+button {
+  padding: 18px 35px; 
+  font-size: 18px; 
+  margin: 10px; 
+  border: none; 
+  border-radius: 25px; 
+  cursor: pointer; 
+  color: white;
+  font-weight: bold;
+  min-width: 200px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
+#start { background: linear-gradient(45deg, #007bff, #0056b3); }
+#record { background: linear-gradient(45deg, #ff6b35, #f7931e); }
+#stop { background: linear-gradient(45deg, #dc3545, #c82333); }
+#upload { background: linear-gradient(45deg, #28a745, #218838); }
+#switchCamera { background: linear-gradient(45deg, #6f42c1, #5a2d91); }
+#status {
+  font-size: 22px; 
+  margin: 25px 0; 
+  padding: 15px; 
+  background: rgba(255,255,255,0.2);
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+#recording {
+  display: none; 
+  animation: blink 1s infinite;
+  font-size: 20px;
+  padding: 15px;
+  background: rgba(255,107,53,0.8);
+  border-radius: 15px;
+  margin: 15px 0;
+}
+@keyframes blink { 50% { opacity: 0.7; } }
+.camera-info {
+  background: rgba(255,255,255,0.1);
+  padding: 10px 20px;
+  border-radius: 10px;
+  margin: 10px 0;
+  font-size: 16px;
+}
+</style>
+</head>
 <body>
-<h1>📱 BROADCASTER</h1>
-<div id="status">🔴 Click Start</div>
-<video id="localVideo" autoplay muted playsinline></video><br>
+<h1>📱 MOBILE BROADCASTER</h1>
+<div id="status">🔴 Tap START STREAM</div>
+<div id="cameraInfo" class="camera-info" style="display:none">Front Camera</div>
+<video id="localVideo" autoplay muted playsinline></video>
 
-<button id="start">▶️ START STREAM</button>
-<button id="record" style="display:none">⏺️ START RECORDING</button>
-<button id="stop" style="display:none">⏹️ STOP RECORDING</button>
-<button id="upload" style="display:none">☁️ UPLOAD TO SERVER</button>
-<div id="recording" class="blink">🔴 RECORDING...</div>
+<div>
+  <button id="start">▶️ START STREAM</button>
+  <button id="switchCamera" style="display:none">🔄 SWITCH CAMERA</button><br>
+  <button id="record" style="display:none">⏺️ RECORD</button>
+  <button id="stop" style="display:none">⏹️ STOP RECORD</button>
+  <button id="upload" style="display:none">☁️ UPLOAD</button>
+</div>
+<div id="recording">🔴 RECORDING LIVE...</div>
 <div id="uploadStatus"></div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -26,7 +88,9 @@ button{padding:15px 30px;font-size:20px;margin:10px;border:none;border-radius:10
 const socket = io();
 const video = document.getElementById('localVideo');
 const status = document.getElementById('status');
+const cameraInfo = document.getElementById('cameraInfo');
 const startBtn = document.getElementById('start');
+const switchBtn = document.getElementById('switchCamera');
 const recordBtn = document.getElementById('record');
 const stopBtn = document.getElementById('stop');
 const uploadBtn = document.getElementById('upload');
@@ -34,22 +98,36 @@ const recordingDiv = document.getElementById('recording');
 const uploadStatus = document.getElementById('uploadStatus');
 
 let stream, canvas, ctx, mediaRecorder, recordedChunks = [], recordedBlob = null;
+let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
 
 // START STREAMING
 startBtn.onclick = async () => {
   try {
-    status.textContent = '🟡 Getting camera...';
-    stream = await navigator.mediaDevices.getUserMedia({video: {width: 640, height: 480}, audio: false});
+    status.textContent = '🟡 Starting camera...';
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { 
+        width: { ideal: 640 }, 
+        height: { ideal: 480 },
+        facingMode: currentFacingMode
+      }, 
+      audio: false 
+    });
     video.srcObject = stream;
+    
+    // Update camera info
+    cameraInfo.textContent = currentFacingMode === 'user' ? '📷 Front Camera' : '📷 Back Camera';
+    cameraInfo.style.display = 'block';
     
     canvas = document.createElement('canvas');
     ctx = canvas.getContext('2d');
     
-    status.textContent = '🟢 Streaming live!';
+    status.textContent = `🟢 Live on ${currentFacingMode === 'user' ? 'Front' : 'Back'} Camera!`;
     startBtn.style.display = 'none';
+    switchBtn.style.display = 'inline-block';
     recordBtn.style.display = 'inline-block';
     socket.emit('start-broadcast');
     
+    // Stream frames to viewers
     setInterval(() => {
       if (video.videoWidth > 0) {
         canvas.width = video.videoWidth;
@@ -60,7 +138,38 @@ startBtn.onclick = async () => {
       }
     }, 66);
   } catch(err) {
-    status.textContent = '❌ Error: ' + err.message;
+    status.textContent = `❌ Camera error: ${err.message}`;
+  }
+};
+
+// 🔄 SWITCH CAMERA (Mobile!)
+switchBtn.onclick = async () => {
+  if (!stream) return;
+  
+  // Stop current stream
+  stream.getTracks().forEach(track => track.stop());
+  
+  // Switch facing mode
+  currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+  
+  try {
+    status.textContent = '🟡 Switching camera...';
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { 
+        width: { ideal: 640 }, 
+        height: { ideal: 480 },
+        facingMode: currentFacingMode
+      }, 
+      audio: false 
+    });
+    video.srcObject = stream;
+    
+    cameraInfo.textContent = currentFacingMode === 'user' ? '📷 Front Camera' : '📷 Back Camera';
+    status.textContent = `🟢 Live on ${currentFacingMode === 'user' ? 'Front' : 'Back'} Camera!`;
+  } catch(err) {
+    status.textContent = `❌ Switch failed: ${err.message}`;
+    // Fallback to original
+    currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
   }
 };
 
@@ -81,23 +190,18 @@ recordBtn.onclick = () => {
   
   mediaRecorder.onstop = () => {
     recordedBlob = new Blob(recordedChunks, { type: 'video/webm' });
-    
-    // Auto-download + show upload button
     const url = URL.createObjectURL(recordedBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `recording-${Date.now()}.webm`;
+    a.download = `mobile-recording-${Date.now()}.webm`;
     a.click();
-    
     uploadBtn.style.display = 'inline-block';
-    status.textContent = '✅ Recording saved! Ready to upload';
   };
   
   mediaRecorder.start(100);
   recordBtn.style.display = 'none';
   stopBtn.style.display = 'inline-block';
   recordingDiv.style.display = 'block';
-  status.textContent = '🔴 Recording + Streaming...';
 };
 
 // STOP RECORDING
@@ -108,38 +212,20 @@ stopBtn.onclick = () => {
   recordingDiv.style.display = 'none';
 };
 
-// UPLOAD TO SERVER
+// UPLOAD
 uploadBtn.onclick = async () => {
-  if (!recordedBlob) {
-    alert('No recording to upload!');
-    return;
-  }
+  if (!recordedBlob) return alert('No recording!');
   
   uploadStatus.textContent = '☁️ Uploading...';
-  uploadBtn.disabled = true;
-  
   const formData = new FormData();
-  formData.append('video', recordedBlob, `recording-${Date.now()}.webm`);
+  formData.append('video', recordedBlob, `mobile-${Date.now()}.webm`);
   
-  try {
-    const response = await fetch('/upload-recording', {
-      method: 'POST',
-      body: formData
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-      uploadStatus.innerHTML = `✅ Uploaded! <a href="${result.url}" target="_blank">Watch</a>`;
-      status.textContent = '🟢 All done!';
-    } else {
-      uploadStatus.textContent = '❌ Upload failed';
-    }
-  } catch(err) {
-    uploadStatus.textContent = '❌ Network error';
-  }
+  const response = await fetch('/upload-recording', { method: 'POST', body: formData });
+  const result = await response.json();
   
-  uploadBtn.disabled = false;
-  uploadBtn.style.display = 'none';
+  uploadStatus.innerHTML = result.success ? 
+    `✅ Uploaded! <a href="${result.url}" target="_blank">Watch</a>` : 
+    '❌ Upload failed';
 };
 </script>
 </body>
