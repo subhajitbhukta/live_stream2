@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head><title>Viewer</title>
+<style>body{padding:30px;text-align:center;background:#f0f0f0;font-family:Arial}
+video{width:100%;max-width:800px;border:4px solid #28a745;border-radius:15px;margin:20px 0;background:black}
+#status{font-size:28px;color:#666;margin:20px}</style></head>
+<body>
+<h1>👁️ LIVE VIEWER</h1>
+<div id="status">🔴 Waiting for broadcaster...</div>
+<video id="remoteVideo" autoplay playsinline controls muted></video>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const video = document.getElementById('remoteVideo');
+const status = document.getElementById('status');
+let canvas, ctx, stream;
+
+socket.on('broadcaster-ready', () => {
+  status.textContent = '🟡 Broadcaster connected!';
+});
+
+socket.on('video-frame', (dataUrl) => {
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    ctx = canvas.getContext('2d');
+    canvas.width = 640;
+    canvas.height = 480;
+  }
+  
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, 640, 480);
+    if (!stream) {
+      stream = canvas.captureStream(15);
+      video.srcObject = stream;
+    }
+    ctx.drawImage(img, 0, 0);
+  };
+  img.src = dataUrl;
+});
+
+socket.on('connect', () => {
+  status.textContent = '🟢 Connected to server';
+});
+</script>
+</body>
+</html>
